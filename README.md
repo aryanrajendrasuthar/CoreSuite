@@ -10,19 +10,24 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 2 — Product + Inventory + CRM.**
+**Phase 3 — Product + Inventory + CRM + Orders.**
 
 - `product-service` — catalog, SKUs, variants, pricing (MySQL)
 - `inventory-service` — warehouses, stock levels, reorder alerts (MySQL,
   optimistic locking)
 - `crm-service` — customer profiles and tag-based segmentation (MySQL),
   communication history log (MongoDB)
+- `order-service` — order lifecycle with an enforced status state machine
+  (PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED, cancellable up to
+  PROCESSING) and full status-change history (MySQL). Line items snapshot SKU
+  and price at order time rather than live-querying `product-service`, so
+  historical orders stay accurate if catalog prices change later.
 
-All three are real, tested APIs — Flyway-migrated schemas, layered
+All four are real, tested APIs — Flyway-migrated schemas, layered
 controller/service/repository code, input validation on every endpoint, and
 integration tests running against real MySQL/MongoDB instances via
-Testcontainers, not mocks. `order-service`, `reporting-service`, and
-`api-gateway` are still Phase 0 skeletons. See
+Testcontainers, not mocks. `reporting-service` and `api-gateway` are still
+Phase 0 skeletons. See
 [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's next.
 
 ## Stack

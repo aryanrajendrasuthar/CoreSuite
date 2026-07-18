@@ -43,8 +43,8 @@ prior codebase should ever be introduced here.
 
 ```bash
 # Backend: build + test everything (Docker must be running — product-service,
-# inventory-service, and crm-service run their integration tests against real
-# MySQL/MongoDB via Testcontainers, not mocks or H2)
+# inventory-service, crm-service, and order-service run their integration
+# tests against real MySQL/MongoDB via Testcontainers, not mocks or H2)
 cd backend && mvn clean install
 
 # Backend: run a single service
