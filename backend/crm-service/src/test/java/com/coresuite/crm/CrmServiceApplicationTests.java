@@ -1,10 +1,8 @@
 package com.coresuite.crm;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class CrmServiceApplicationTests {
+class CrmServiceApplicationTests extends AbstractIntegrationTest {
 
     @Test
     void contextLoads() {

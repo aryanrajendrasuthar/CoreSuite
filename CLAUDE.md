@@ -42,9 +42,9 @@ prior codebase should ever be introduced here.
 ## Commands
 
 ```bash
-# Backend: build + test everything (Docker must be running — product-service
-# and inventory-service run their integration tests against a real MySQL via
-# Testcontainers, not mocks or H2)
+# Backend: build + test everything (Docker must be running — product-service,
+# inventory-service, and crm-service run their integration tests against real
+# MySQL/MongoDB via Testcontainers, not mocks or H2)
 cd backend && mvn clean install
 
 # Backend: run a single service
@@ -59,6 +59,20 @@ cd frontend/dashboard && npm run lint                   # lint
 cd infra && docker compose up -d
 cd infra && docker compose down
 ```
+
+## Testing
+
+Every service with persistence tests against real datastores via
+Testcontainers (`AbstractIntegrationTest` in each service's test tree) —
+never H2 or mocked repositories for integration tests. When adding a new
+service's `AbstractIntegrationTest`, do **not** use `@Testcontainers`/
+`@Container` on the container fields: that combination stops containers
+after each test class's `afterAll`, even for a static field shared via an
+abstract base class, which restarts them mid-suite and breaks the next
+test class's connection (seen firsthand in Phase 1 — cost real debugging
+time). Use Testcontainers' documented singleton pattern instead: a plain
+`@ServiceConnection`-annotated static field started once in a `static {}`
+initializer, left running for the JVM's lifetime.
 
 ## Build phases
 

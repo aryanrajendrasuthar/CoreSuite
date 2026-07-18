@@ -10,12 +10,19 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 1 — Product + Inventory.** `product-service` (catalog, SKUs,
-variants, pricing) and `inventory-service` (warehouses, stock levels, reorder
-alerts) are real, tested, MySQL-backed APIs — Flyway-migrated schemas, layered
+**Phase 2 — Product + Inventory + CRM.**
+
+- `product-service` — catalog, SKUs, variants, pricing (MySQL)
+- `inventory-service` — warehouses, stock levels, reorder alerts (MySQL,
+  optimistic locking)
+- `crm-service` — customer profiles and tag-based segmentation (MySQL),
+  communication history log (MongoDB)
+
+All three are real, tested APIs — Flyway-migrated schemas, layered
 controller/service/repository code, input validation on every endpoint, and
-integration tests running against a real MySQL instance via Testcontainers.
-The other three services are still Phase 0 skeletons. See
+integration tests running against real MySQL/MongoDB instances via
+Testcontainers, not mocks. `order-service`, `reporting-service`, and
+`api-gateway` are still Phase 0 skeletons. See
 [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's next.
 
 ## Stack
@@ -42,15 +49,21 @@ cp .env.example .env   # fill in local dev credentials
 docker compose up -d
 cd ..
 
-# 2. Build and test the backend (product-service and inventory-service run
-#    integration tests against a real, throwaway MySQL via Testcontainers —
-#    Docker must be running)
+# 2. Build and test the backend (product-service, inventory-service, and
+#    crm-service run integration tests against real, throwaway MySQL/MongoDB
+#    instances via Testcontainers — Docker must be running)
 cd backend
 mvn clean install
 
-# 3. Run a service against your local MySQL — env vars must match infra/.env
+# 3. Run a service against your local infra — env vars must match infra/.env
 cd product-service
 DB_USERNAME=root DB_PASSWORD=<your MYSQL_ROOT_PASSWORD from infra/.env> \
+  mvn spring-boot:run
+
+# crm-service additionally needs Mongo credentials:
+cd ../crm-service
+DB_USERNAME=root DB_PASSWORD=<MYSQL_ROOT_PASSWORD> \
+  MONGO_USERNAME=<MONGO_ROOT_USERNAME> MONGO_PASSWORD=<MONGO_ROOT_PASSWORD> \
   mvn spring-boot:run
 
 # 4. Run the frontend
