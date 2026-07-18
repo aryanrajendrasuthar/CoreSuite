@@ -50,11 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: maven
       - name: OWASP Dependency-Check (backend)
         uses: dependency-check/Dependency-Check_Action@main
         env:
@@ -63,9 +58,7 @@ jobs:
           project: coresuite-backend
           path: backend
           format: HTML
-          args: >
-            --failOnCVSS 9
-            --enableRetired
+          args: --failOnCVSS 9 --enableRetired
       - name: Frontend dependency audit
         working-directory: frontend/dashboard
         run: npm audit --audit-level=critical
