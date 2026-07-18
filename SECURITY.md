@@ -19,8 +19,8 @@ failure rather than failing open silently.
 | Sessions | 256-bit random tokens, HttpOnly/Secure/SameSite=Strict cookies | Not yet implemented | `backend/shared` (planned) |
 | Rate limiting | 10 req/15min on auth endpoints; Redis-backed elsewhere | Not yet implemented | `backend/api-gateway` (planned) |
 | Authorization (IDOR) | Server-side resource-ownership check on every mutation | Not yet implemented | Per-service `@PreAuthorize` (planned) |
-| Input validation | `jakarta.validation` on every controller DTO | Not yet implemented | Per-service DTOs (planned) |
-| SQL injection | Parameterized queries only (JPA/Hibernate, no string-concatenated SQL) | Enforced by convention once persistence lands | Per-service repositories |
+| Input validation | `jakarta.validation` on every controller DTO | Implemented in `product-service`, `inventory-service`; not yet in the other services | Per-service DTOs |
+| SQL injection | Parameterized queries only (JPA/Hibernate, no string-concatenated SQL) | Implemented in `product-service`, `inventory-service` (Spring Data JPA only, no native queries) | Per-service repositories |
 | XSS | DOMPurify-equivalent sanitization on any user-supplied HTML rendered by the frontend | Not yet implemented | `frontend/dashboard` (planned) |
 | Field-level encryption | AES-256-GCM for sensitive customer data (contact info, payment references) | Not yet implemented | `crm-service` (planned) |
 | Row-level access | Enforced in the service layer (MySQL has no native RLS — this is a deliberate application-layer control) | Not yet implemented | Per-service |

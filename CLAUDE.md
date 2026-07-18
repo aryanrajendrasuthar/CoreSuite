@@ -42,7 +42,9 @@ prior codebase should ever be introduced here.
 ## Commands
 
 ```bash
-# Backend: build + test everything
+# Backend: build + test everything (Docker must be running — product-service
+# and inventory-service run their integration tests against a real MySQL via
+# Testcontainers, not mocks or H2)
 cd backend && mvn clean install
 
 # Backend: run a single service

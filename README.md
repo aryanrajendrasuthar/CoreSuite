@@ -10,9 +10,13 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 0 — infra bootstrap.** Module skeletons, local infra, and CI are in
-place. No business logic yet — see [`docs/project-plan.md`](docs/project-plan.md#6-build-phases)
-for what's next.
+**Phase 1 — Product + Inventory.** `product-service` (catalog, SKUs,
+variants, pricing) and `inventory-service` (warehouses, stock levels, reorder
+alerts) are real, tested, MySQL-backed APIs — Flyway-migrated schemas, layered
+controller/service/repository code, input validation on every endpoint, and
+integration tests running against a real MySQL instance via Testcontainers.
+The other three services are still Phase 0 skeletons. See
+[`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's next.
 
 ## Stack
 
@@ -38,11 +42,18 @@ cp .env.example .env   # fill in local dev credentials
 docker compose up -d
 cd ..
 
-# 2. Build and test the backend
+# 2. Build and test the backend (product-service and inventory-service run
+#    integration tests against a real, throwaway MySQL via Testcontainers —
+#    Docker must be running)
 cd backend
 mvn clean install
 
-# 3. Run the frontend
+# 3. Run a service against your local MySQL — env vars must match infra/.env
+cd product-service
+DB_USERNAME=root DB_PASSWORD=<your MYSQL_ROOT_PASSWORD from infra/.env> \
+  mvn spring-boot:run
+
+# 4. Run the frontend
 cd frontend/dashboard
 npm install
 npm run dev
