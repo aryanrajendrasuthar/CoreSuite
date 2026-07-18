@@ -4,15 +4,21 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
+    // Deliberately not using @Testcontainers/@Container: that combination stops
+    // the container after each test class's afterAll, even for a static field in
+    // a shared base class, which restarts it mid-suite and breaks the next test
+    // class's connection. This is Testcontainers' documented "singleton
+    // container" pattern instead — started once, left running, reaped at JVM
+    // exit.
     @ServiceConnection
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+
+    static {
+        MYSQL.start();
+    }
 }

@@ -14,13 +14,6 @@ jobs:
   backend-build:
     name: Backend build & test
     runs-on: ubuntu-latest
-    env:
-      # Testcontainers' Ryuk reaper watches a heartbeat from the test JVM and
-      # kills containers if it lags — on throttled/busy CI runners this fires
-      # false positives mid-suite (MySQL container dies between test classes
-      # with "Communications link failure"). The runner VM is destroyed after
-      # the job regardless, so leftover containers aren't a real risk here.
-      TESTCONTAINERS_RYUK_DISABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
