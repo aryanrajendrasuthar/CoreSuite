@@ -10,7 +10,7 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 3 — Product + Inventory + CRM + Orders.**
+**Phase 4 — Product + Inventory + CRM + Orders + Reporting.**
 
 - `product-service` — catalog, SKUs, variants, pricing (MySQL)
 - `inventory-service` — warehouses, stock levels, reorder alerts (MySQL,
@@ -22,13 +22,18 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
   PROCESSING) and full status-change history (MySQL). Line items snapshot SKU
   and price at order time rather than live-querying `product-service`, so
   historical orders stay accurate if catalog prices change later.
+- `reporting-service` — KPI dashboard (order counts, revenue, low-stock
+  alerts) and CSV/PDF order export. Holds no database of its own — it reads
+  live from `order-service` and `inventory-service` over HTTP (their public
+  APIs, never their databases directly, per `docs/architecture.md`).
 
-All four are real, tested APIs — Flyway-migrated schemas, layered
-controller/service/repository code, input validation on every endpoint, and
-integration tests running against real MySQL/MongoDB instances via
-Testcontainers, not mocks. `reporting-service` and `api-gateway` are still
-Phase 0 skeletons. See
-[`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's next.
+All five are real, tested APIs. The first four have Flyway-migrated schemas,
+layered controller/service/repository code, input validation on every
+endpoint, and integration tests against real MySQL/MongoDB via Testcontainers.
+`reporting-service`, being stateless, tests its downstream HTTP calls with
+`MockRestServiceServer` instead. `api-gateway` is still a Phase 0 skeleton.
+See [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's
+next.
 
 ## Stack
 

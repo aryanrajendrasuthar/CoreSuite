@@ -2,6 +2,11 @@ spring:
   application:
     name: reporting-service
 
+coresuite:
+  services:
+    order-service-url: http://${ORDER_SERVICE_HOST:localhost}:${ORDER_SERVICE_PORT:8084}
+    inventory-service-url: http://${INVENTORY_SERVICE_HOST:localhost}:${INVENTORY_SERVICE_PORT:8083}
+
 server:
   port: 8085
 

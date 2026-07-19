@@ -23,6 +23,11 @@ prior codebase should ever be introduced here.
 - **Respect module boundaries** (see `docs/architecture.md`): a service
   never queries another service's database directly, only via its REST API.
   Shared logic (auth, validation, common DTOs) lives once in `backend/shared`.
+  `reporting-service` is the first consumer of this pattern (Spring
+  `RestClient`, base URLs from env-configurable `ConfigurationProperties`,
+  failures wrapped in `shared`'s `DownstreamServiceException` → 502) — follow
+  the same shape for any future cross-service call, including in
+  `api-gateway`.
 - **Minimal, clean code.** No speculative abstractions, no unused
   configuration, no half-finished features. Three similar lines beat a
   premature abstraction.
@@ -44,7 +49,9 @@ prior codebase should ever be introduced here.
 ```bash
 # Backend: build + test everything (Docker must be running — product-service,
 # inventory-service, crm-service, and order-service run their integration
-# tests against real MySQL/MongoDB via Testcontainers, not mocks or H2)
+# tests against real MySQL/MongoDB via Testcontainers, not mocks or H2.
+# reporting-service has no database of its own; its tests use
+# MockRestServiceServer to stub the other services' HTTP responses)
 cd backend && mvn clean install
 
 # Backend: run a single service
