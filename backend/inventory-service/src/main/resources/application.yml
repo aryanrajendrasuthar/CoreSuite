@@ -2,7 +2,7 @@ spring:
   application:
     name: inventory-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:coresuite}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:inventory_service}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
   jpa:
@@ -11,7 +11,6 @@ spring:
       ddl-auto: validate
   flyway:
     table: flyway_schema_history_inventory
-    baseline-on-migrate: true
 
 server:
   port: 8083

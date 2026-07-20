@@ -1,18 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit'
-import productReducer from '../features/product/productSlice'
-import crmReducer from '../features/crm/crmSlice'
-import inventoryReducer from '../features/inventory/inventorySlice'
-import ordersReducer from '../features/orders/ordersSlice'
-import reportingReducer from '../features/reporting/reportingSlice'
+import { api } from './api'
 
 export const store = configureStore({
   reducer: {
-    product: productReducer,
-    crm: crmReducer,
-    inventory: inventoryReducer,
-    orders: ordersReducer,
-    reporting: reportingReducer,
+    [api.reducerPath]: api.reducer,
   },
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(api.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>

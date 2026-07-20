@@ -24,7 +24,7 @@ failure rather than failing open silently.
 | XSS | DOMPurify-equivalent sanitization on any user-supplied HTML rendered by the frontend | Not yet implemented | `frontend/dashboard` (planned) |
 | Field-level encryption | AES-256-GCM for sensitive customer data (contact info, payment references) | Not yet implemented | `crm-service` (planned) |
 | Row-level access | Enforced in the service layer (MySQL has no native RLS — this is a deliberate application-layer control) | Not yet implemented | Per-service |
-| CORS | Exact-origin whitelist, no wildcard | Not yet implemented | `backend/api-gateway` (planned) |
+| CORS | Exact-origin whitelist, no wildcard | Implemented — single configurable origin via `CORS_ALLOWED_ORIGIN`, defaults to the local frontend dev origin | `backend/api-gateway` |
 | Observability | Sentry wired from first commit | Not yet implemented | All services (planned) |
 | CI security gates | `mvn dependency-check`, TruffleHog secret scanning, CodeQL — all blocking merges | Implemented | `.github/workflows/ci.yml` |
 | Secrets | Zero hardcoded secrets; local dev secrets via `.env` (gitignored) | Enforced by `.gitignore` + CI secret scan | Repo root |

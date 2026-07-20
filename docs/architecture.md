@@ -18,18 +18,27 @@ refactor, not a rewrite.
 
 | Module | Owns | Data store |
 |---|---|---|
-| `product-service` | Catalog, SKUs, pricing, variants | MySQL |
-| `crm-service` | Customer profiles, communication history, segmentation | MySQL (profiles) + MongoDB (comms history) |
-| `inventory-service` | Stock levels, warehouses, reorder thresholds | MySQL |
-| `order-service` | Order lifecycle, status transitions, history | MySQL |
-| `reporting-service` | KPI aggregation, CSV/PDF export | Reads from other modules' MySQL schemas via API, no direct cross-schema queries |
+| `product-service` | Catalog, SKUs, pricing, variants | Own MySQL database (`product_service`) |
+| `crm-service` | Customer profiles, communication history, segmentation | Own MySQL database (`crm_service`) + MongoDB (comms history) |
+| `inventory-service` | Stock levels, warehouses, reorder thresholds | Own MySQL database (`inventory_service`) |
+| `order-service` | Order lifecycle, status transitions, history | Own MySQL database (`order_service`) |
+| `reporting-service` | KPI aggregation, CSV/PDF export | Reads from other modules' APIs, no database of its own |
 | `api-gateway` | Routing, auth enforcement, rate limiting, CORS | None (stateless routing layer) |
 | `shared` | Auth/session library, validation helpers, common DTOs | None — imported as a dependency by every service |
 
-`frontend/dashboard` is a single React/TypeScript/Redux app with one Redux
-slice per domain (`features/product`, `features/crm`, `features/inventory`,
-`features/orders`, `features/reporting`), all traffic routed through
-`api-gateway`.
+Each MySQL-backed service gets its own **database**, not just its own tables
+in a shared schema, on the one MySQL server `infra/docker-compose.yml` runs
+(created by `infra/mysql-init` on first boot). This isn't just the standard
+microservices pattern — it's load-bearing: Flyway's non-empty-schema safety
+check operates at the database level, so if two services' tables lived in one
+shared schema, the second service to start would find the schema already
+non-empty (from the first service's tables) and refuse to run its own
+migrations.
+
+`frontend/dashboard` is a single React/TypeScript app using Redux Toolkit
+Query (`app/api.ts`, with endpoints injected per domain in
+`features/*/*.Api.ts`) for all data fetching — no hand-written thunks or
+slices. All traffic goes through `api-gateway`, never to a service directly.
 
 ## Why MySQL + MongoDB
 

@@ -2,7 +2,7 @@ spring:
   application:
     name: crm-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:coresuite}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:crm_service}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
   jpa:
@@ -11,7 +11,6 @@ spring:
       ddl-auto: validate
   flyway:
     table: flyway_schema_history_crm
-    baseline-on-migrate: true
   data:
     mongodb:
       uri: mongodb://${MONGO_USERNAME:root}:${MONGO_PASSWORD:}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DATABASE:coresuite_crm}?authSource=admin

@@ -28,6 +28,11 @@ prior codebase should ever be introduced here.
   failures wrapped in `shared`'s `DownstreamServiceException` → 502) — follow
   the same shape for any future cross-service call, including in
   `api-gateway`.
+- **One MySQL database per service**, not shared tables in one schema, even
+  though they all run on the same MySQL server (see `infra/mysql-init`). This
+  isn't optional — Flyway's non-empty-schema safety check operates at the
+  database level, so a shared schema breaks the moment a second service
+  starts against it (found the hard way running the full stack in Phase 5).
 - **Minimal, clean code.** No speculative abstractions, no unused
   configuration, no half-finished features. Three similar lines beat a
   premature abstraction.
@@ -38,9 +43,16 @@ prior codebase should ever be introduced here.
 ## Stack decisions (already made — don't relitigate without reason)
 
 - Java 21 (LTS), Spring Boot 3.x, Maven multi-module reactor under `backend/`
-- React + TypeScript + Redux Toolkit + Vite under `frontend/dashboard`
+- React + TypeScript + Redux Toolkit Query + Vite under `frontend/dashboard`
+  — RTK Query for all data fetching, no hand-written thunks/slices
 - MySQL for transactional data, MongoDB for unstructured/CRM data, Redis for
   caching and rate limiting
+- `api-gateway` uses Spring Cloud Gateway pinned to **2023.0.3**, not a later
+  2023.0.x patch: 2023.0.6's gateway module calls `HttpHeaders.headerSet()`,
+  which doesn't exist in the Spring Framework version Spring Boot 3.3.4
+  actually ships (`NoSuchMethodError` at request time, not at build time —
+  only shows up when a route is actually hit). Re-check compatibility before
+  bumping this.
 - CI: GitHub Actions — build/test, OWASP Dependency-Check, TruffleHog secret
   scan, CodeQL, all blocking merges
 
@@ -80,6 +92,14 @@ test class's connection (seen firsthand in Phase 1 — cost real debugging
 time). Use Testcontainers' documented singleton pattern instead: a plain
 `@ServiceConnection`-annotated static field started once in a `static {}`
 initializer, left running for the JVM's lifetime.
+
+**Frontend has no automated test runner yet** (build + lint only, via
+`npm run build`/`npm run lint`) — a known gap, not a stated non-goal. Phase 5
+verified the frontend's correctness by exercising every write path (the exact
+requests each page's RTK Query hooks make) through a live gateway with `curl`,
+since no browser-automation tool (Playwright, chromium-cli) was available in
+that session to drive it visually. Add Vitest + React Testing Library before
+this gap grows with more pages.
 
 ## Build phases
 

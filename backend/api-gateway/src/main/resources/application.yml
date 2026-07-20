@@ -1,6 +1,35 @@
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: product-service
+          uri: http://${PRODUCT_SERVICE_HOST:localhost}:${PRODUCT_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/products/**,/api/variants/**
+        - id: crm-service
+          uri: http://${CRM_SERVICE_HOST:localhost}:${CRM_SERVICE_PORT:8082}
+          predicates:
+            - Path=/api/customers/**,/api/segments/**
+        - id: inventory-service
+          uri: http://${INVENTORY_SERVICE_HOST:localhost}:${INVENTORY_SERVICE_PORT:8083}
+          predicates:
+            - Path=/api/warehouses/**,/api/stock/**
+        - id: order-service
+          uri: http://${ORDER_SERVICE_HOST:localhost}:${ORDER_SERVICE_PORT:8084}
+          predicates:
+            - Path=/api/orders/**
+        - id: reporting-service
+          uri: http://${REPORTING_SERVICE_HOST:localhost}:${REPORTING_SERVICE_PORT:8085}
+          predicates:
+            - Path=/api/reports/**
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowedOrigins: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+            allowedHeaders: "*"
 
 server:
   port: 8080
@@ -9,4 +38,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,gateway
