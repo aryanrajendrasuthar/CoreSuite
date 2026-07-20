@@ -1,4 +1,6 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { useGetMeQuery, useLogoutMutation } from './features/auth/authApi'
+import { LoginPage } from './features/auth/LoginPage'
 import { CustomersPage } from './features/crm/CustomersPage'
 import { InventoryPage } from './features/inventory/InventoryPage'
 import { OrdersPage } from './features/orders/OrdersPage'
@@ -14,6 +16,21 @@ const NAV_LINKS = [
 ]
 
 function App() {
+  const { data: user, isLoading, isError } = useGetMeQuery()
+  const [logout] = useLogoutMutation()
+
+  if (isLoading) {
+    return (
+      <main>
+        <p className="muted">Loading…</p>
+      </main>
+    )
+  }
+
+  if (isError || !user) {
+    return <LoginPage />
+  }
+
   return (
     <main>
       <h1>CoreSuite</h1>
@@ -26,6 +43,14 @@ function App() {
               </NavLink>
             </li>
           ))}
+          <li className="muted" style={{ marginLeft: 'auto' }}>
+            {user.email}
+          </li>
+          <li>
+            <button type="button" className="secondary" onClick={() => logout()}>
+              Sign out
+            </button>
+          </li>
         </ul>
       </nav>
       <Routes>

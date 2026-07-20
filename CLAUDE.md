@@ -33,6 +33,20 @@ prior codebase should ever be introduced here.
   isn't optional — Flyway's non-empty-schema safety check operates at the
   database level, so a shared schema breaks the moment a second service
   starts against it (found the hard way running the full stack in Phase 5).
+- **Auth is centralized in `api-gateway`, trusted by the other services via
+  headers, not re-implemented per service.** `api-gateway` owns the `users`
+  table (own MySQL database, `auth_service`) and Redis-backed sessions
+  (`AuthController`, `SessionService`); after validating a session cookie, its
+  `AuthenticationGatewayFilter` attaches `X-Gateway-Secret`/`X-User-Id`/
+  `X-User-Roles` to the proxied request. Every other service runs
+  `shared`'s `TrustedHeaderAuthenticationFilter` + a `SecurityConfig`
+  requiring `.anyRequest().authenticated()`, trusting those headers instead
+  of validating sessions themselves. `GATEWAY_SECRET` must be identical
+  across every service's config (defaults match locally; change together in
+  any real deployment — see SECURITY.md). This is defense-in-depth, not the
+  real trust boundary: a service reached directly (bypassing the gateway)
+  with a correct/leaked secret would still be trusted — the real boundary is
+  network isolation, a Phase 8 deployment concern.
 - **Minimal, clean code.** No speculative abstractions, no unused
   configuration, no half-finished features. Three similar lines beat a
   premature abstraction.
@@ -60,14 +74,22 @@ prior codebase should ever be introduced here.
 
 ```bash
 # Backend: build + test everything (Docker must be running — product-service,
-# inventory-service, crm-service, and order-service run their integration
-# tests against real MySQL/MongoDB via Testcontainers, not mocks or H2.
-# reporting-service has no database of its own; its tests use
+# inventory-service, crm-service, order-service, and api-gateway run their
+# integration tests against real MySQL/MongoDB/Redis via Testcontainers, not
+# mocks or H2. reporting-service has no database of its own; its tests use
 # MockRestServiceServer to stub the other services' HTTP responses)
 cd backend && mvn clean install
 
-# Backend: run a single service
+# Backend: run a single service (product/crm/inventory/order need
+# DB_USERNAME/DB_PASSWORD; crm additionally needs MONGO_USERNAME/
+# MONGO_PASSWORD; api-gateway additionally needs REDIS_PASSWORD — all must
+# match infra/.env, see README)
 cd backend/<service-name> && mvn spring-boot:run
+
+# No user exists until you register one — the first registration becomes
+# ADMIN, every one after is STAFF (see AuthService)
+curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"at least 12 characters"}'
 
 # Frontend
 cd frontend/dashboard && npm install && npm run dev    # dev server
@@ -93,6 +115,32 @@ time). Use Testcontainers' documented singleton pattern instead: a plain
 `@ServiceConnection`-annotated static field started once in a `static {}`
 initializer, left running for the JVM's lifetime.
 
+**Two Spring Security MockMvc gotchas hit in Phase 6, worth not rediscovering:**
+1. A nested `@TestConfiguration` class is only auto-detected on the exact test
+   class JUnit is running, **not inherited from a superclass**. Each
+   service's `AbstractIntegrationTest` defines `AuthenticatedMockMvcConfig`
+   (a `MockMvcBuilderCustomizer` that attaches valid trusted headers to every
+   request by default) — it only actually applies because the class carries
+   an explicit `@Import(AbstractIntegrationTest.AuthenticatedMockMvcConfig.class)`.
+   Drop that `@Import` and every subclass's requests silently go out with no
+   headers at all, and every test starts failing with 401/403 for reasons
+   that look unrelated to headers.
+2. With `httpBasic().disable()` and `formLogin().disable()`, Spring Security
+   has no `AuthenticationEntryPoint` configured and falls back to
+   `Http403ForbiddenEntryPoint` — meaning **every** auth failure returns 403,
+   including requests with no credentials at all, not just "authenticated but
+   forbidden" cases. Each service's `SecurityConfig` overrides this with an
+   explicit `exceptionHandling().authenticationEntryPoint(...)` returning 401,
+   since that's the correct code for "no valid identity presented" and this
+   API never wants a browser login prompt. If a service you're securing
+   starts returning 403 for missing-auth requests instead of 401, this is why.
+
+Each service's `SecurityEnforcementTest` builds its own `MockMvc` via
+`MockMvcBuilders.webAppContextSetup(...).apply(springSecurity()).build()`
+(bypassing the auto-authenticated default) specifically to prove requests
+are rejected, not just that authenticated ones happen to work — the
+auto-configured `MockMvc` bean alone can't test the rejection path.
+
 **Frontend has no automated test runner yet** (build + lint only, via
 `npm run build`/`npm run lint`) — a known gap, not a stated non-goal. Phase 5
 verified the frontend's correctness by exercising every write path (the exact
@@ -110,8 +158,11 @@ status in `README.md` and `SECURITY.md`'s control table as each phase lands.
 
 ## Security
 
-Before merging anything that adds a mutation endpoint, touches auth, or
-handles customer data, check it against [`SECURITY.md`](SECURITY.md):
-IDOR check present, input validated via `jakarta.validation`, no raw SQL
-string concatenation, no secret committed. Update `SECURITY.md`'s status
-table when a control actually ships — don't mark it done ahead of the code.
+Before merging anything that adds an endpoint, touches auth, or handles
+customer data, check it against [`SECURITY.md`](SECURITY.md): the service's
+`SecurityConfig` covers the new route (it will, by default —
+`.anyRequest().authenticated()` — but check nothing carves out a new
+`permitAll()`), input validated via `jakarta.validation`, no raw SQL string
+concatenation, no secret committed, role-gated with `@PreAuthorize` if the
+action should be admin-only. Update `SECURITY.md`'s status table when a
+control actually ships — don't mark it done ahead of the code.

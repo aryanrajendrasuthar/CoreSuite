@@ -23,8 +23,8 @@ refactor, not a rewrite.
 | `inventory-service` | Stock levels, warehouses, reorder thresholds | Own MySQL database (`inventory_service`) |
 | `order-service` | Order lifecycle, status transitions, history | Own MySQL database (`order_service`) |
 | `reporting-service` | KPI aggregation, CSV/PDF export | Reads from other modules' APIs, no database of its own |
-| `api-gateway` | Routing, auth enforcement, rate limiting, CORS | None (stateless routing layer) |
-| `shared` | Auth/session library, validation helpers, common DTOs | None — imported as a dependency by every service |
+| `api-gateway` | Routing, auth (accounts, sessions), rate limiting, CORS | Own MySQL database (`auth_service`) for user accounts; Redis for sessions and rate-limit counters |
+| `shared` | Auth primitives (Argon2id hashing, session tokens, the trusted-header filter every other service runs), validation helpers, common DTOs | None — imported as a dependency by every service |
 
 Each MySQL-backed service gets its own **database**, not just its own tables
 in a shared schema, on the one MySQL server `infra/docker-compose.yml` runs
@@ -47,6 +47,35 @@ goes in MySQL, where foreign keys and transactions matter. Less-structured,
 schema-flexible data (CRM communication history, product variant attribute
 bags) goes in MongoDB, where the shape varies per record and strict schemas
 add friction without adding safety.
+
+## Authentication and trust boundary
+
+`api-gateway` is the only module that authenticates anyone. The flow:
+
+1. The browser calls `POST /api/auth/login` with credentials; `api-gateway`
+   checks the password hash (Argon2id) against its `users` table, creates a
+   session in Redis (opaque 256-bit token, 24h TTL), and sets it as an
+   HttpOnly/Secure/SameSite=Strict cookie.
+2. Every subsequent request carries that cookie. `AuthenticationGatewayFilter`
+   (a `GlobalFilter`, runs before routing) looks up the session in Redis; no
+   valid session means an immediate 401, before the request ever reaches a
+   backend service.
+3. On a valid session, the filter attaches `X-Gateway-Secret`, `X-User-Id`,
+   `X-User-Email`, and `X-User-Roles` to the proxied request — a trusted
+   identity the backend service didn't have to derive itself.
+4. Every other service runs `shared`'s `TrustedHeaderAuthenticationFilter` +
+   a `SecurityConfig` requiring `.anyRequest().authenticated()`. It never
+   sees the cookie, never talks to Redis, and never validates a password —
+   it just trusts the headers, provided `X-Gateway-Secret` matches its own
+   configured value.
+
+That shared secret is defense-in-depth, not the real trust boundary: a
+service reached directly (bypassing the gateway) with a correct or leaked
+secret would still be trusted. The real boundary is network isolation —
+only `api-gateway` should be able to reach the other services — which is a
+Phase 8 deployment concern (see below), not something enforceable in
+application code alone. Locally, everything listens on `localhost` with no
+such isolation.
 
 ## Module boundary rules
 

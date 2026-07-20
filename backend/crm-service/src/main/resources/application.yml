@@ -15,6 +15,9 @@ spring:
     mongodb:
       uri: mongodb://${MONGO_USERNAME:root}:${MONGO_PASSWORD:}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DATABASE:coresuite_crm}?authSource=admin
 
+coresuite:
+  gateway-secret: ${GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+
 server:
   port: 8082
 

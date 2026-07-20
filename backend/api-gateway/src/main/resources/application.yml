@@ -1,6 +1,31 @@
 spring:
   application:
     name: api-gateway
+  # shared brings spring-security-web/-core transitively (for the servlet
+  # filter/Argon2 code the other, non-reactive services use) which otherwise
+  # triggers Spring Boot's default reactive security auto-config here even
+  # though nothing in this app uses it — no real filter chain gets built
+  # (that needs spring-security-config, which isn't on this classpath), but
+  # it logs a confusing "generated security password" on every boot.
+  # AuthenticationGatewayFilter is the only thing actually enforcing auth.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:auth_service}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    table: flyway_schema_history_auth
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   cloud:
     gateway:
       routes:
@@ -30,6 +55,10 @@ spring:
             allowedOrigins: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
             allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
             allowedHeaders: "*"
+            allowCredentials: true
+
+coresuite:
+  gateway-secret: ${GATEWAY_SECRET:local-dev-gateway-secret-change-me}
 
 server:
   port: 8080

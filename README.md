@@ -10,7 +10,7 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 5 — full stack, wired end-to-end through `api-gateway`.**
+**Phase 6a — full stack, authenticated end-to-end.**
 
 - `product-service` — catalog, SKUs, variants, pricing (own MySQL database)
 - `inventory-service` — warehouses, stock levels, reorder alerts (own MySQL
@@ -28,20 +28,30 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
   live from `order-service` and `inventory-service` over HTTP (their public
   APIs, never their databases directly, per `docs/architecture.md`).
 - `api-gateway` — Spring Cloud Gateway routing every service under one origin,
-  with an exact-origin CORS whitelist. Auth enforcement lands in Phase 6.
+  with an exact-origin CORS whitelist, **and now real authentication**: owns
+  user accounts (Argon2id password hashing) and Redis-backed sessions
+  (HttpOnly/Secure/SameSite=Strict cookie), rate-limits login attempts, and
+  attaches a trusted identity to every proxied request. Every backend service
+  requires that trusted identity to answer any request at all — verified with
+  tests that prove rejection, not just that authenticated calls happen to
+  work.
 - `frontend/dashboard` — a real React/Redux Toolkit Query UI for all five
-  domains (list + create flows, order status transitions, a KPI view), talking
-  only to the gateway, never to a service directly.
+  domains (list + create flows, order status transitions, a KPI view) behind
+  a login screen, talking only to the gateway, never to a service directly.
 
 Each MySQL-backed service owns its own database on the shared MySQL instance
-(`product_service`, `crm_service`, `inventory_service`, `order_service` —
-created by `infra/mysql-init` on first boot), not just separate tables in a
-shared schema — Flyway's non-empty-schema safety check operates per database,
-so a genuinely shared schema breaks the moment a second service starts against
-it. `reporting-service` tests its downstream HTTP calls with
-`MockRestServiceServer` instead of Testcontainers, since it holds no data of
-its own. See [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for
-what's next — Phase 6 is real auth and the rest of the security baseline.
+(`product_service`, `crm_service`, `inventory_service`, `order_service`,
+`auth_service` — created by `infra/mysql-init` on first boot), not just
+separate tables in a shared schema — Flyway's non-empty-schema safety check
+operates per database, so a genuinely shared schema breaks the moment a
+second service starts against it. `reporting-service` tests its downstream
+HTTP calls with `MockRestServiceServer` instead of Testcontainers, since it
+holds no data of its own. Still explicitly deferred: TOTP 2FA, field-level
+encryption, Sentry observability, and the compliance (right-to-delete/export)
+endpoints — see [`SECURITY.md`](SECURITY.md) for the full status table and
+what "IDOR" means for an internal tool rather than a customer-facing SaaS.
+See [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's
+next.
 
 ## Stack
 
@@ -70,9 +80,10 @@ docker compose up -d
 cd ..
 
 # 2. Build and test the backend (product-service, inventory-service,
-#    crm-service, and order-service run integration tests against real,
-#    throwaway MySQL/MongoDB instances via Testcontainers — Docker must be
-#    running; reporting-service and api-gateway need no database)
+#    crm-service, order-service, and api-gateway run integration tests
+#    against real, throwaway MySQL/MongoDB/Redis instances via
+#    Testcontainers — Docker must be running; reporting-service needs no
+#    database)
 cd backend
 mvn clean install
 
@@ -85,9 +96,15 @@ DB_USERNAME=root DB_PASSWORD=<MYSQL_ROOT_PASSWORD> \
 DB_USERNAME=root DB_PASSWORD=<MYSQL_ROOT_PASSWORD> mvn -pl inventory-service spring-boot:run &
 DB_USERNAME=root DB_PASSWORD=<MYSQL_ROOT_PASSWORD> mvn -pl order-service spring-boot:run &
 mvn -pl reporting-service spring-boot:run &
-mvn -pl api-gateway spring-boot:run &
+DB_USERNAME=root DB_PASSWORD=<MYSQL_ROOT_PASSWORD> REDIS_PASSWORD=<REDIS_PASSWORD> \
+  mvn -pl api-gateway spring-boot:run &
 
-# 4. Run the frontend — talks to the gateway at http://localhost:8080 by
+# 4. Create your account — the first registration becomes ADMIN, every one
+#    after is STAFF. There's no seed user; nothing works until you do this.
+curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"at least 12 characters"}'
+
+# 5. Run the frontend — talks to the gateway at http://localhost:8080 by
 #    default (override with frontend/dashboard/.env.local, see .env.example)
 cd frontend/dashboard
 npm install
