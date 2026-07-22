@@ -4,12 +4,13 @@ import com.coresuite.gateway.domain.User;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public record UserResponse(Long id, String email, Set<String> roles) {
+public record UserResponse(Long id, String email, Set<String> roles, boolean totpEnabled) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
-                user.getRoles().stream().map(Enum::name).collect(Collectors.toSet()));
+                user.getRoles().stream().map(Enum::name).collect(Collectors.toSet()),
+                user.isTotpEnabled());
     }
 }

@@ -1,8 +1,11 @@
 package com.coresuite.gateway.web;
 
 import com.coresuite.gateway.service.InvalidCredentialsException;
+import com.coresuite.gateway.service.InvalidTotpCodeException;
 import com.coresuite.gateway.service.RateLimitExceededException;
+import com.coresuite.gateway.service.TotpRequiredException;
 import com.coresuite.shared.error.ConflictException;
+import com.coresuite.shared.error.ResourceNotFoundException;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -18,9 +21,28 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ProblemDetail handleNotFound(ResourceNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(TotpRequiredException.class)
+    public ProblemDetail handleTotpRequired(TotpRequiredException ex) {
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        detail.setProperty("totpRequired", true);
+        return detail;
+    }
+
+    @ExceptionHandler(InvalidTotpCodeException.class)
+    public ProblemDetail handleInvalidTotpCode(InvalidTotpCodeException ex) {
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        detail.setProperty("totpRequired", true);
+        return detail;
     }
 
     @ExceptionHandler(RateLimitExceededException.class)

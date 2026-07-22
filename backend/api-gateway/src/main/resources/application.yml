@@ -59,6 +59,12 @@ spring:
 
 coresuite:
   gateway-secret: ${GATEWAY_SECRET:local-dev-gateway-secret-change-me}
+  # Base64-encoded 32-byte AES-256 key used to encrypt TOTP secrets at rest.
+  # Local-dev-only default below; a real deployment must set a unique value
+  # (see SECURITY.md "Secrets to change before any real deployment").
+  field-encryption-key: ${FIELD_ENCRYPTION_KEY:BApYw3nAmSTPXl9ECJF55PTrXOQZLdjb/OpLGZnd9m4=}
+  totp:
+    issuer: CoreSuite
 
 server:
   port: 8080

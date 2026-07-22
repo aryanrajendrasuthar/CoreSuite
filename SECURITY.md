@@ -15,7 +15,7 @@ failure rather than failing open silently.
 | Control | Requirement | Status | Location |
 |---|---|---|---|
 | Password hashing | Argon2id | Implemented — `PasswordHasher` (Spring Security's `Argon2PasswordEncoder`, Bouncy Castle backend) | `backend/shared` |
-| 2FA | TOTP-based | Not yet implemented | `backend/api-gateway` (planned) |
+| 2FA | TOTP-based | Implemented — RFC 6238 via `dev.samstevens.totp`; secret encrypted at rest (AES-256-GCM, `FieldEncryptor`); required on login once enabled | `backend/api-gateway` (`TotpService`, `AuthController` `/api/auth/totp/*`) |
 | Sessions | 256-bit random tokens, HttpOnly/Secure/SameSite=Strict cookies | Implemented — opaque tokens in Redis (24h TTL), cookie set with all three flags | `backend/api-gateway` (`AuthController`, `SessionService`) |
 | Rate limiting | 10 req/15min on auth endpoints; Redis-backed elsewhere | Partially implemented — login is rate-limited (10/15min per client IP, Redis fixed-window counter); general per-endpoint API rate limiting is not yet applied | `backend/api-gateway` (`RateLimiterService`) |
 | Authentication enforcement | Every mutation requires a valid identity | Implemented — every backend service requires a trusted identity from api-gateway on every request (not just mutations), enforced at the Spring Security filter-chain level (`anyRequest().authenticated()`) rather than per-method annotations, so a new endpoint can't accidentally ship unauthenticated | `product-service`, `crm-service`, `inventory-service`, `order-service` (`SecurityConfig`) |
@@ -23,7 +23,7 @@ failure rather than failing open silently.
 | Input validation | `jakarta.validation` on every controller DTO | Implemented in `product-service`, `inventory-service`, `crm-service`, `order-service`, `api-gateway`'s auth endpoints; not yet in the other services | Per-service DTOs |
 | SQL injection | Parameterized queries only (JPA/Hibernate, no string-concatenated SQL) | Implemented in `product-service`, `inventory-service`, `crm-service`, `order-service`, `api-gateway` (Spring Data JPA/JPQL only, no native queries) | Per-service repositories |
 | XSS | DOMPurify-equivalent sanitization on any user-supplied HTML rendered by the frontend | Not yet implemented — not yet applicable either, the frontend doesn't render arbitrary user-supplied HTML anywhere today | `frontend/dashboard` (planned) |
-| Field-level encryption | AES-256-GCM for sensitive customer data (contact info, payment references) | Not yet implemented | `crm-service` (planned) |
+| Field-level encryption | AES-256-GCM for sensitive customer data (contact info, payment references) | Primitive implemented (`FieldEncryptor` in `backend/shared`, currently used to encrypt TOTP secrets at rest); not yet applied to CRM customer fields | `backend/shared` (primitive); `crm-service` (planned) |
 | Row-level access | Enforced in the service layer (MySQL has no native RLS — this is a deliberate application-layer control) | Not yet implemented — see note below | Per-service (planned) |
 | CORS | Exact-origin whitelist, no wildcard, credentials allowed for the session cookie | Implemented — single configurable origin via `CORS_ALLOWED_ORIGIN`, defaults to the local frontend dev origin | `backend/api-gateway` |
 | Observability | Sentry wired from first commit | Not yet implemented | All services (planned) |
@@ -71,8 +71,13 @@ topology, all services listen on `localhost` with no network segmentation.
 
 Every service defaults `GATEWAY_SECRET` to `local-dev-gateway-secret-change-me`
 and MySQL/Redis credentials to `changeme` — fine for `docker compose up`
-against `localhost`, not fine anywhere reachable outside this machine. Set
-real values via each service's environment before deploying (Phase 8).
+against `localhost`, not fine anywhere reachable outside this machine.
+`api-gateway` additionally defaults `FIELD_ENCRYPTION_KEY` (the AES-256 key
+that encrypts TOTP secrets at rest) to a fixed local-dev value baked into
+`application.yml` — a real deployment must set a unique, secret,
+base64-encoded 32-byte value, since anyone with the default could decrypt
+every enrolled user's TOTP secret. Set real values via each service's
+environment before deploying (Phase 8).
 
 ## Reporting a vulnerability
 

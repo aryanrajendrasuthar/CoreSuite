@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { useGetMeQuery, useLogoutMutation } from './features/auth/authApi'
 import { LoginPage } from './features/auth/LoginPage'
+import { SettingsPage } from './features/auth/SettingsPage'
 import { CustomersPage } from './features/crm/CustomersPage'
 import { InventoryPage } from './features/inventory/InventoryPage'
 import { OrdersPage } from './features/orders/OrdersPage'
@@ -44,7 +45,9 @@ function App() {
             </li>
           ))}
           <li className="muted" style={{ marginLeft: 'auto' }}>
-            {user.email}
+            <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+              {user.email}
+            </NavLink>
           </li>
           <li>
             <button type="button" className="secondary" onClick={() => logout()}>
@@ -60,6 +63,7 @@ function App() {
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/reporting" element={<ReportingPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </main>
   )

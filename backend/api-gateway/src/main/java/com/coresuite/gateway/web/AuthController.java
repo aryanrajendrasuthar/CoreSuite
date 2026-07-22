@@ -2,6 +2,8 @@ package com.coresuite.gateway.web;
 
 import com.coresuite.gateway.dto.LoginRequest;
 import com.coresuite.gateway.dto.RegisterRequest;
+import com.coresuite.gateway.dto.TotpCodeRequest;
+import com.coresuite.gateway.dto.TotpSetupResponse;
 import com.coresuite.gateway.dto.UserResponse;
 import com.coresuite.gateway.service.AuthService;
 import com.coresuite.gateway.service.RateLimitExceededException;
@@ -63,10 +65,37 @@ public class AuthController {
 
     @GetMapping("/me")
     public Mono<ResponseEntity<UserResponse>> me(ServerWebExchange exchange) {
+        return currentUserId(exchange)
+                .flatMap(userId -> authService.currentUser(userId).map(ResponseEntity::ok))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()));
+    }
+
+    @PostMapping("/totp/setup")
+    public Mono<ResponseEntity<TotpSetupResponse>> setupTotp(ServerWebExchange exchange) {
+        return currentUserId(exchange)
+                .flatMap(userId -> authService.setupTotp(userId).map(ResponseEntity::ok))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()));
+    }
+
+    @PostMapping("/totp/enable")
+    public Mono<ResponseEntity<UserResponse>> enableTotp(
+            @Valid @RequestBody TotpCodeRequest request, ServerWebExchange exchange) {
+        return currentUserId(exchange)
+                .flatMap(userId -> authService.enableTotp(userId, request.code()).map(ResponseEntity::ok))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()));
+    }
+
+    @PostMapping("/totp/disable")
+    public Mono<ResponseEntity<UserResponse>> disableTotp(
+            @Valid @RequestBody TotpCodeRequest request, ServerWebExchange exchange) {
+        return currentUserId(exchange)
+                .flatMap(userId -> authService.disableTotp(userId, request.code()).map(ResponseEntity::ok))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()));
+    }
+
+    private Mono<Long> currentUserId(ServerWebExchange exchange) {
         String token = extractToken(exchange);
-        return sessionService.findSession(token)
-                .map(session -> ResponseEntity.ok(new UserResponse(session.userId(), session.email(), session.roles())))
-                .defaultIfEmpty(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+        return sessionService.findSession(token).map(SessionService.SessionData::userId);
     }
 
     private String extractToken(ServerWebExchange exchange) {

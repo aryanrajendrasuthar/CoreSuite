@@ -30,7 +30,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                 .value(user -> assertThat(user.email()).isEqualTo(email));
 
         ResponseCookie sessionCookie = webTestClient.post().uri("/api/auth/login")
-                .bodyValue(new LoginRequest(email, "correct horse battery staple"))
+                .bodyValue(new LoginRequest(email, "correct horse battery staple", null))
                 .exchange()
                 .expectStatus().isOk()
                 .returnResult(UserResponse.class)
@@ -76,7 +76,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                 .expectStatus().isCreated();
 
         webTestClient.post().uri("/api/auth/login")
-                .bodyValue(new LoginRequest(email, "wrong password entirely"))
+                .bodyValue(new LoginRequest(email, "wrong password entirely", null))
                 .exchange()
                 .expectStatus().isUnauthorized();
     }

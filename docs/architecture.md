@@ -53,9 +53,16 @@ add friction without adding safety.
 `api-gateway` is the only module that authenticates anyone. The flow:
 
 1. The browser calls `POST /api/auth/login` with credentials; `api-gateway`
-   checks the password hash (Argon2id) against its `users` table, creates a
-   session in Redis (opaque 256-bit token, 24h TTL), and sets it as an
-   HttpOnly/Secure/SameSite=Strict cookie.
+   checks the password hash (Argon2id) against its `users` table. If the
+   account has TOTP enabled, a valid 6-digit code (RFC 6238, `TotpService`)
+   must also be present in the same request — the response distinguishes
+   "code required" from "wrong password" via a `totpRequired` field in the
+   error body, without confirming which credential was wrong. Only then does
+   it create a session in Redis (opaque 256-bit token, 24h TTL) and set it as
+   an HttpOnly/Secure/SameSite=Strict cookie. TOTP secrets are generated and
+   verified via `/api/auth/totp/{setup,enable,disable}` (session-authenticated,
+   not gateway-routed) and stored AES-256-GCM encrypted (`FieldEncryptor` in
+   `shared`) — decrypted only in memory, only to check a submitted code.
 2. Every subsequent request carries that cookie. `AuthenticationGatewayFilter`
    (a `GlobalFilter`, runs before routing) looks up the session in Redis; no
    valid session means an immediate 401, before the request ever reaches a

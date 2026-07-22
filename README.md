@@ -10,7 +10,7 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-**Phase 6a — full stack, authenticated end-to-end.**
+**Phase 6b — TOTP-based two-factor authentication.**
 
 - `product-service` — catalog, SKUs, variants, pricing (own MySQL database)
 - `inventory-service` — warehouses, stock levels, reorder alerts (own MySQL
@@ -34,10 +34,14 @@ Security controls and status: [`SECURITY.md`](SECURITY.md).
   attaches a trusted identity to every proxied request. Every backend service
   requires that trusted identity to answer any request at all — verified with
   tests that prove rejection, not just that authenticated calls happen to
-  work.
+  work. Also owns optional TOTP-based 2FA (RFC 6238, `/api/auth/totp/*`):
+  enrollment secrets are AES-256-GCM encrypted at rest before hitting MySQL,
+  and once enabled, a valid 6-digit code is required on every login.
 - `frontend/dashboard` — a real React/Redux Toolkit Query UI for all five
   domains (list + create flows, order status transitions, a KPI view) behind
   a login screen, talking only to the gateway, never to a service directly.
+  A Settings page lets a signed-in user enroll in and disable 2FA, and the
+  login flow prompts for a code when the account requires one.
 
 Each MySQL-backed service owns its own database on the shared MySQL instance
 (`product_service`, `crm_service`, `inventory_service`, `order_service`,
@@ -46,10 +50,12 @@ separate tables in a shared schema — Flyway's non-empty-schema safety check
 operates per database, so a genuinely shared schema breaks the moment a
 second service starts against it. `reporting-service` tests its downstream
 HTTP calls with `MockRestServiceServer` instead of Testcontainers, since it
-holds no data of its own. Still explicitly deferred: TOTP 2FA, field-level
-encryption, Sentry observability, and the compliance (right-to-delete/export)
-endpoints — see [`SECURITY.md`](SECURITY.md) for the full status table and
-what "IDOR" means for an internal tool rather than a customer-facing SaaS.
+holds no data of its own. Still explicitly deferred: applying field-level
+encryption to CRM customer data (the AES-256-GCM primitive itself now exists,
+used so far only for TOTP secrets), Sentry observability, and the compliance
+(right-to-delete/export) endpoints — see [`SECURITY.md`](SECURITY.md) for the
+full status table and what "IDOR" means for an internal tool rather than a
+customer-facing SaaS.
 See [`docs/project-plan.md`](docs/project-plan.md#6-build-phases) for what's
 next.
 

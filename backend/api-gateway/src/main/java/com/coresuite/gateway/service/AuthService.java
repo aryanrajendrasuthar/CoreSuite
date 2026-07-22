@@ -4,10 +4,12 @@ import com.coresuite.gateway.domain.Role;
 import com.coresuite.gateway.domain.User;
 import com.coresuite.gateway.dto.LoginRequest;
 import com.coresuite.gateway.dto.RegisterRequest;
+import com.coresuite.gateway.dto.TotpSetupResponse;
 import com.coresuite.gateway.dto.UserResponse;
 import com.coresuite.gateway.repository.UserRepository;
 import com.coresuite.shared.auth.PasswordHasher;
 import com.coresuite.shared.error.ConflictException;
+import com.coresuite.shared.error.ResourceNotFoundException;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final SessionService sessionService;
+    private final TotpService totpService;
     private final PasswordHasher passwordHasher = new PasswordHasher();
 
     public record LoginResult(String token, UserResponse user) {
@@ -42,9 +45,20 @@ public class AuthService {
     }
 
     public Mono<LoginResult> login(LoginRequest request) {
-        return Mono.fromCallable(() -> userRepository.findByEmail(request.email())
-                        .filter(user -> passwordHasher.matches(request.password(), user.getPasswordHash()))
-                        .orElseThrow(InvalidCredentialsException::new))
+        return Mono.fromCallable(() -> {
+                    User user = userRepository.findByEmail(request.email())
+                            .filter(u -> passwordHasher.matches(request.password(), u.getPasswordHash()))
+                            .orElseThrow(InvalidCredentialsException::new);
+                    if (user.isTotpEnabled()) {
+                        if (request.totpCode() == null || request.totpCode().isBlank()) {
+                            throw new TotpRequiredException();
+                        }
+                        if (!totpService.isValidCode(user.getTotpSecret(), request.totpCode())) {
+                            throw new InvalidTotpCodeException();
+                        }
+                    }
+                    return user;
+                })
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(user -> sessionService
                         .createSession(new SessionService.SessionData(
@@ -52,5 +66,52 @@ public class AuthService {
                                 user.getEmail(),
                                 user.getRoles().stream().map(Enum::name).collect(Collectors.toSet())))
                         .map(token -> new LoginResult(token, UserResponse.from(user))));
+    }
+
+    public Mono<UserResponse> currentUser(Long userId) {
+        return Mono.fromCallable(() ->
+                        UserResponse.from(userRepository.findById(userId).orElseThrow(this::userNotFound)))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    public Mono<TotpSetupResponse> setupTotp(Long userId) {
+        return Mono.fromCallable(() -> {
+                    User user = userRepository.findById(userId).orElseThrow(this::userNotFound);
+                    TotpService.Enrollment enrollment = totpService.generateEnrollment(user.getEmail());
+                    user.setTotpSecret(enrollment.encryptedSecret());
+                    user.setTotpEnabled(false);
+                    userRepository.save(user);
+                    return new TotpSetupResponse(enrollment.rawSecret(), enrollment.otpAuthUri());
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    public Mono<UserResponse> enableTotp(Long userId, String code) {
+        return Mono.fromCallable(() -> {
+                    User user = userRepository.findById(userId).orElseThrow(this::userNotFound);
+                    if (!totpService.isValidCode(user.getTotpSecret(), code)) {
+                        throw new InvalidTotpCodeException();
+                    }
+                    user.setTotpEnabled(true);
+                    return UserResponse.from(userRepository.save(user));
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    public Mono<UserResponse> disableTotp(Long userId, String code) {
+        return Mono.fromCallable(() -> {
+                    User user = userRepository.findById(userId).orElseThrow(this::userNotFound);
+                    if (!totpService.isValidCode(user.getTotpSecret(), code)) {
+                        throw new InvalidTotpCodeException();
+                    }
+                    user.setTotpEnabled(false);
+                    user.setTotpSecret(null);
+                    return UserResponse.from(userRepository.save(user));
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private ResourceNotFoundException userNotFound() {
+        return new ResourceNotFoundException("User not found");
     }
 }
